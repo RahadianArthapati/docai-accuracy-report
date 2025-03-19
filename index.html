@@ -65,6 +65,8 @@
             overflow-x: auto;
             margin: 0 -1px;
             padding: 1px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         .table-container::-webkit-scrollbar {
             height: 8px;
@@ -190,6 +192,11 @@
             padding: 12px 16px;
             border-bottom: 1px solid #e9ecef;
             text-align: left;
+            white-space: nowrap;
+        }
+        .data-table th:last-child,
+        .data-table td:last-child {
+            white-space: normal;
         }
         .data-table th {
             background-color: #f8f9fa;
@@ -210,6 +217,105 @@
             font-style: italic;
             font-weight: bold;
             
+        }
+        /* Image popup styles */
+        .image-button {
+            background-color: #4361ee;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            font-weight: 500;
+            transition: background-color 0.2s, transform 0.1s;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .image-button:hover {
+            background-color: #3a56d4;
+            transform: scale(1.05);
+        }
+        .image-button:active {
+            transform: scale(0.95);
+        }
+        /* Remove the old eye icon styling */
+        .image-button svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+        .image-popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .image-popup-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 90%;
+            max-height: 90%;
+            overflow: auto;
+            position: relative;
+        }
+        .image-popup-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background-color: #f8f9fa;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: #495057;
+        }
+        .image-popup-image {
+            max-width: 100%;
+            height: auto;
+        }
+        /* Loading spinner styles */
+        .loading-spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(67, 97, 238, 0.2);
+            border-radius: 50%;
+            border-top-color: #4361ee;
+            animation: spin 1s ease-in-out infinite;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            margin-top: -25px;
+            margin-left: -25px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .image-loading-container {
+            position: relative;
+            min-width: 300px;
+            min-height: 200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
     </style>
 </head>
@@ -337,23 +443,9 @@
         };
 
         // AccuracyHeatmap component
-        const AccuracyHeatmap = ({ data, onDataFiltered }) => {
-            const [selectedFilter, setSelectedFilter] = React.useState("All");
-            const [filteredData, setFilteredData] = React.useState(data);
-
-            React.useEffect(() => {
-                const days = dateFilters.find(f => f.label === selectedFilter).days;
-                const filtered = filterDataByDate(data, days);
-                // Sort by CreateDate in descending order
-                const sorted = [...filtered].sort((a, b) => 
-                    new Date(b.CreateDate) - new Date(a.CreateDate)
-                );
-                setFilteredData(sorted);
-                onDataFiltered(sorted); // Notify parent component about filtered data
-            }, [selectedFilter, data, onDataFiltered]);
-
-            console.log('Rendering AccuracyHeatmap with data:', filteredData);
-            const { vendorAccuracies, fields } = calculateAccuracies(filteredData);
+        const AccuracyHeatmap = ({ data }) => {
+            console.log('Rendering AccuracyHeatmap with data:', data);
+            const { vendorAccuracies, fields } = calculateAccuracies(data);
 
             const sortedVendors = Object.entries(vendorAccuracies)
                 .sort(([, a], [, b]) => b.transactionCount - a.transactionCount);
@@ -403,45 +495,8 @@
                 whiteSpace: 'nowrap'
             };
 
-            const filterStyle = {
-                marginBottom: '20px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px'
-            };
-
-            const selectStyle = {
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: '1px solid #dee2e6',
-                backgroundColor: 'white',
-                fontSize: '0.9rem',
-                color: '#495057',
-                cursor: 'pointer'
-            };
-
-            const labelStyle = {
-                fontSize: '0.9rem',
-                fontWeight: '500',
-                color: '#495057'
-            };
-
             return (
                 <React.Fragment>
-                    <div style={filterStyle}>
-                        <label style={labelStyle}>Filter by date:</label>
-                        <select 
-                            style={selectStyle}
-                            value={selectedFilter}
-                            onChange={(e) => setSelectedFilter(e.target.value)}
-                        >
-                            {dateFilters.map(filter => (
-                                <option key={filter.label} value={filter.label}>
-                                    {filter.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
                     <div className="table-container">
                         <table style={tableStyle}>
                             <thead>
@@ -589,18 +644,8 @@
 
         // New DataTable component
         const DataTable = ({ data }) => {
-            const [selectedFilter, setSelectedFilter] = React.useState("All");
-            const [filteredData, setFilteredData] = React.useState(data);
-
-            React.useEffect(() => {
-                const days = dateFilters.find(f => f.label === selectedFilter).days;
-                const filtered = filterDataByDate(data, days);
-                // Sort by CreateDate in descending order
-                const sorted = [...filtered].sort((a, b) => 
-                    new Date(b.CreateDate) - new Date(a.CreateDate)
-                );
-                setFilteredData(sorted);
-            }, [selectedFilter, data]);
+            const [popupImage, setPopupImage] = React.useState(null);
+            const [imageLoaded, setImageLoaded] = React.useState(false);
 
             // Helper function to get field values
             const getFieldValues = (transaction, fieldName) => {
@@ -630,13 +675,25 @@
             // Group data by VendorName
             const groupedData = React.useMemo(() => {
                 const groups = {};
-                filteredData.forEach(transaction => {
+                data.forEach(transaction => {
                     const vendorValues = getFieldValues(transaction, 'VendorName');
                     const vendorName = vendorValues.original || 'Unknown';
                     
                     if (!groups[vendorName]) {
                         groups[vendorName] = [];
                     }
+                    
+                    // Check if ImageName exists at the top level and is a string
+                    let imageName = null;
+                    if (transaction.ImageName && typeof transaction.ImageName === 'string') {
+                        imageName = {
+                            original: transaction.ImageName,
+                            modified: transaction.ImageName
+                        };
+                    }
+                    
+                    console.log("Transaction:", transaction.TransactionID);
+                    console.log("ImageName:", transaction.ImageName);
                     
                     // Extract relevant data from transaction
                     const transactionData = {
@@ -652,7 +709,10 @@
                         description: getFieldValues(transaction, 'Description'),
                         currency: getFieldValues(transaction, 'Currency'),
                         servicePrice: getFieldValues(transaction, 'ServicePrice'),
-                        goodsPrice: getFieldValues(transaction, 'GoodsPrice')
+                        goodsPrice: getFieldValues(transaction, 'GoodsPrice'),
+                        imageName: imageName,
+                        // Keep the raw ImageName as fallback
+                        rawImageName: transaction.ImageName
                     };
                     
                     groups[vendorName].push(transactionData);
@@ -668,7 +728,7 @@
                 });
                 
                 return groups;
-            }, [filteredData]);
+            }, [data]);
 
             // Sort vendors by transaction count in descending order
             const sortedVendors = React.useMemo(() => {
@@ -689,6 +749,146 @@
                 );
             };
 
+            // Helper function to render image button if URL exists
+            const renderImageButton = (values) => {
+                if (!values || (!values.original && !values.modified)) {
+                    console.log("No image values found");
+                    return '-';
+                }
+                
+                const imageUrl = values.modified || values.original;
+                if (!imageUrl || imageUrl === '-') {
+                    console.log("Image URL is empty or '-'");
+                    return '-';
+                }
+                
+                console.log("Rendering image button for URL:", imageUrl);
+                
+                return (
+                    <button 
+                        className="image-button"
+                        onClick={() => setPopupImage(imageUrl)}
+                        title="View Image"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <path d="M12 4C4 4 1 12 1 12C1 12 4 20 12 20C20 20 23 12 23 12C23 12 20 4 12 4ZM12 17C9.24 17 7 14.76 7 12C7 9.24 9.24 7 12 7C14.76 7 17 9.24 17 12C17 14.76 14.76 17 12 17ZM12 9C10.34 9 9 10.34 9 12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12C15 10.34 13.66 9 12 9Z"/>
+                        </svg>
+                    </button>
+                );
+            };
+
+            // Function to close the popup
+            const closePopup = () => {
+                setPopupImage(null);
+                setImageLoaded(false);
+            };
+
+            // Function to handle image load
+            const handleImageLoad = () => {
+                setImageLoaded(true);
+            };
+
+            return (
+                <React.Fragment>
+                    <div className="table-container">
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Create Date</th>
+                                    <th>Company ID</th>
+                                    <th>Outlet ID</th>
+                                    <th>Invoice Number</th>
+                                    <th>Invoice Date</th>
+                                    <th>Description</th>
+                                    <th>Currency</th>
+                                    <th>Service Price</th>
+                                    <th>Goods Price</th>
+                                    <th>Image</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedVendors.map(([vendor, transactions]) => (
+                                    <React.Fragment key={vendor}>
+                                        <tr className="vendor-group">
+                                            <td colSpan="10">{vendor} ({transactions.length} transactions)</td>
+                                        </tr>
+                                        {transactions.map((transaction, index) => {
+                                            console.log(`Rendering transaction row for ${vendor} #${index}:`, transaction.imageName);
+                                            return (
+                                                <tr key={`${vendor}-${index}`}>
+                                                    <td>{transaction.createDate}</td>
+                                                    <td>{renderFieldValue(transaction.companyId)}</td>
+                                                    <td>{renderFieldValue(transaction.outletId)}</td>
+                                                    <td>{renderFieldValue(transaction.invoiceNumber)}</td>
+                                                    <td>{renderFieldValue(transaction.invoiceDate)}</td>
+                                                    <td>{renderFieldValue(transaction.description)}</td>
+                                                    <td>{renderFieldValue(transaction.currency)}</td>
+                                                    <td>{renderFieldValue(transaction.servicePrice)}</td>
+                                                    <td>{renderFieldValue(transaction.goodsPrice)}</td>
+                                                    <td>
+                                                        {transaction.rawImageName ? 
+                                                            <button 
+                                                                className="image-button"
+                                                                onClick={() => setPopupImage(transaction.rawImageName)}
+                                                                title="View Image"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                                                    <path d="M12 4C4 4 1 12 1 12C1 12 4 20 12 20C20 20 23 12 23 12C23 12 20 4 12 4ZM12 17C9.24 17 7 14.76 7 12C7 9.24 9.24 7 12 7C14.76 7 17 9.24 17 12C17 14.76 14.76 17 12 17ZM12 9C10.34 9 9 10.34 9 12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12C15 10.34 13.66 9 12 9Z"/>
+                                                                </svg>
+                                                            </button>
+                                                            : '-'
+                                                        }
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </React.Fragment>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    {/* Image popup */}
+                    {popupImage && (
+                        <div className="image-popup-overlay" onClick={closePopup}>
+                            <div className="image-popup-content" onClick={e => e.stopPropagation()}>
+                                <button className="image-popup-close" onClick={closePopup}>×</button>
+                                <div className="image-loading-container">
+                                    {!imageLoaded && <div className="loading-spinner"></div>}
+                                    <img 
+                                        className="image-popup-image" 
+                                        src={popupImage} 
+                                        alt="Invoice" 
+                                        onLoad={handleImageLoad}
+                                        style={{ display: imageLoaded ? 'block' : 'none' }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </React.Fragment>
+            );
+        };
+
+        // TabView component
+        const TabView = ({ data, onDataFiltered }) => {
+            const [activeTab, setActiveTab] = React.useState('accuracy');
+            const [selectedFilter, setSelectedFilter] = React.useState("All");
+            const [filteredData, setFilteredData] = React.useState(data);
+
+            // Apply date filter
+            React.useEffect(() => {
+                const days = dateFilters.find(f => f.label === selectedFilter).days;
+                const filtered = filterDataByDate(data, days);
+                // Sort by CreateDate in descending order
+                const sorted = [...filtered].sort((a, b) => 
+                    new Date(b.CreateDate) - new Date(a.CreateDate)
+                );
+                setFilteredData(sorted);
+                onDataFiltered(sorted);
+            }, [selectedFilter, data, onDataFiltered]);
+
+            // Filter style components
             const filterStyle = {
                 marginBottom: '20px',
                 display: 'flex',
@@ -714,69 +914,6 @@
 
             return (
                 <React.Fragment>
-                    <div style={filterStyle}>
-                        <label style={labelStyle}>Filter by date:</label>
-                        <select 
-                            style={selectStyle}
-                            value={selectedFilter}
-                            onChange={(e) => setSelectedFilter(e.target.value)}
-                        >
-                            {dateFilters.map(filter => (
-                                <option key={filter.label} value={filter.label}>
-                                    {filter.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="table-container">
-                        <table className="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Create Date</th>
-                                    <th>Company ID</th>
-                                    <th>Outlet ID</th>
-                                    <th>Invoice Number</th>
-                                    <th>Invoice Date</th>
-                                    <th>Description</th>
-                                    <th>Currency</th>
-                                    <th>Service Price</th>
-                                    <th>Goods Price</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {sortedVendors.map(([vendor, transactions]) => (
-                                    <React.Fragment key={vendor}>
-                                        <tr className="vendor-group">
-                                            <td colSpan="9">{vendor} ({transactions.length} transactions)</td>
-                                        </tr>
-                                        {transactions.map((transaction, index) => (
-                                            <tr key={`${vendor}-${index}`}>
-                                                <td>{transaction.createDate}</td>
-                                                <td>{renderFieldValue(transaction.companyId)}</td>
-                                                <td>{renderFieldValue(transaction.outletId)}</td>
-                                                <td>{renderFieldValue(transaction.invoiceNumber)}</td>
-                                                <td>{renderFieldValue(transaction.invoiceDate)}</td>
-                                                <td>{renderFieldValue(transaction.description)}</td>
-                                                <td>{renderFieldValue(transaction.currency)}</td>
-                                                <td>{renderFieldValue(transaction.servicePrice)}</td>
-                                                <td>{renderFieldValue(transaction.goodsPrice)}</td>
-                                            </tr>
-                                        ))}
-                                    </React.Fragment>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </React.Fragment>
-            );
-        };
-
-        // TabView component
-        const TabView = ({ data, onDataFiltered }) => {
-            const [activeTab, setActiveTab] = React.useState('accuracy');
-
-            return (
-                <React.Fragment>
                     <div className="tabs">
                         <button 
                             className={`tab ${activeTab === 'accuracy' ? 'active' : ''}`}
@@ -791,10 +928,27 @@
                             Data
                         </button>
                     </div>
+                    
+                    {/* Shared filter control */}
+                    <div style={filterStyle}>
+                        <label style={labelStyle}>Filter by date:</label>
+                        <select 
+                            style={selectStyle}
+                            value={selectedFilter}
+                            onChange={(e) => setSelectedFilter(e.target.value)}
+                        >
+                            {dateFilters.map(filter => (
+                                <option key={filter.label} value={filter.label}>
+                                    {filter.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    
                     {activeTab === 'accuracy' ? (
-                        <AccuracyHeatmap data={data} onDataFiltered={onDataFiltered} />
+                        <AccuracyHeatmap data={filteredData} />
                     ) : (
-                        <DataTable data={data} />
+                        <DataTable data={filteredData} />
                     )}
                 </React.Fragment>
             );
@@ -950,6 +1104,12 @@
             })
             .then(jsonData => {
                 console.log('Received JSON data:', jsonData);
+                // Log ImageName values in the first few transactions
+                if (jsonData && jsonData.length > 0) {
+                    for (let i = 0; i < Math.min(5, jsonData.length); i++) {
+                        console.log(`Transaction ${i} ImageName:`, jsonData[i].ImageName);
+                    }
+                }
                 ReactDOM.render(
                     <React.StrictMode>
                         <App data={jsonData} />
