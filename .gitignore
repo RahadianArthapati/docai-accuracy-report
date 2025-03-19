@@ -35,4 +35,7 @@ logs/
 .npm
 
 # Optional eslint cache
-.eslintcache 
+.eslintcache
+
+# Data files
+src/data/response.json 
