@@ -118,7 +118,7 @@
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 16px;
-            margin-bottom: 24px;
+            margin-bottom: 12px;
             padding: 0;
         }
         .card {
@@ -154,6 +154,62 @@
         }
         .value-warning {
             color: #ff9f43;
+        }
+        .tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+        .tab {
+            padding: 12px 24px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #6c757d;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all 0.2s;
+        }
+        .tab:hover {
+            color: #4361ee;
+        }
+        .tab.active {
+            color: #4361ee;
+            border-bottom: 2px solid #4361ee;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 20px;
+        }
+        .data-table th,
+        .data-table td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #e9ecef;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        .data-table tbody tr:hover {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+        .vendor-group {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        .modified-value {
+            color: #ff9f43;
+            display: block;
+            margin-top: 4px;
+            font-style: italic;
+            font-weight: bold;
+            
         }
     </style>
 </head>
@@ -559,7 +615,220 @@
             );
         };
 
-        // Update App component to handle filtered data
+        // New DataTable component
+        const DataTable = ({ data }) => {
+            const [selectedFilter, setSelectedFilter] = React.useState("All");
+            const [filteredData, setFilteredData] = React.useState(data);
+
+            React.useEffect(() => {
+                const days = dateFilters.find(f => f.label === selectedFilter).days;
+                const filtered = filterDataByDate(data, days);
+                // Sort by CreateDate in descending order
+                const sorted = [...filtered].sort((a, b) => 
+                    new Date(b.CreateDate) - new Date(a.CreateDate)
+                );
+                setFilteredData(sorted);
+            }, [selectedFilter, data]);
+
+            // Helper function to get field values
+            const getFieldValues = (transaction, fieldName) => {
+                const field = transaction.Header.find(f => f.name === fieldName);
+                if (field && field.value) {
+                    return {
+                        original: field.value.original,
+                        modified: field.value.modified
+                    };
+                }
+                // Check in Detail.Data if not found in Header
+                for (const detail of transaction.Detail) {
+                    const detailField = detail.Data.find(f => f.name === fieldName);
+                    if (detailField && detailField.value) {
+                        return {
+                            original: detailField.value.original,
+                            modified: detailField.value.modified
+                        };
+                    }
+                }
+                return {
+                    original: '-',
+                    modified: undefined
+                };
+            };
+
+            // Group data by VendorName
+            const groupedData = React.useMemo(() => {
+                const groups = {};
+                filteredData.forEach(transaction => {
+                    const vendorValues = getFieldValues(transaction, 'VendorName');
+                    const vendorName = vendorValues.original || 'Unknown';
+                    
+                    if (!groups[vendorName]) {
+                        groups[vendorName] = [];
+                    }
+                    
+                    // Extract relevant data from transaction
+                    const transactionData = {
+                        createDate: new Date(transaction.CreateDate).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric'
+                        }),
+                        companyId: getFieldValues(transaction, 'CompanyID'),
+                        outletId: getFieldValues(transaction, 'OutletID'),
+                        invoiceNumber: getFieldValues(transaction, 'InvoiceNumber'),
+                        invoiceDate: getFieldValues(transaction, 'InvoiceDate'),
+                        description: getFieldValues(transaction, 'Description'),
+                        currency: getFieldValues(transaction, 'Currency'),
+                        servicePrice: getFieldValues(transaction, 'ServicePrice'),
+                        goodsPrice: getFieldValues(transaction, 'GoodsPrice')
+                    };
+                    
+                    groups[vendorName].push(transactionData);
+                });
+                
+                // Sort transactions by createDate in descending order within each vendor group
+                Object.values(groups).forEach(transactions => {
+                    transactions.sort((a, b) => {
+                        const dateA = new Date(a.createDate.split(' ').join(' '));
+                        const dateB = new Date(b.createDate.split(' ').join(' '));
+                        return dateB - dateA;
+                    });
+                });
+                
+                return groups;
+            }, [filteredData]);
+
+            // Sort vendors by transaction count in descending order
+            const sortedVendors = React.useMemo(() => {
+                return Object.entries(groupedData)
+                    .sort(([, a], [, b]) => b.length - a.length);
+            }, [groupedData]);
+
+            // Helper function to render field value
+            const renderFieldValue = (values) => {
+                if (!values) return '-';
+                return (
+                    <React.Fragment>
+                        {values.original || '-'}
+                        {values.modified && values.modified.trim() !== '' && values.modified !== values.original && (
+                            <span className="modified-value">{values.modified}</span>
+                        )}
+                    </React.Fragment>
+                );
+            };
+
+            const filterStyle = {
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+            };
+
+            const selectStyle = {
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid #dee2e6',
+                backgroundColor: 'white',
+                fontSize: '0.9rem',
+                color: '#495057',
+                cursor: 'pointer'
+            };
+
+            const labelStyle = {
+                fontSize: '0.9rem',
+                fontWeight: '500',
+                color: '#495057'
+            };
+
+            return (
+                <React.Fragment>
+                    <div style={filterStyle}>
+                        <label style={labelStyle}>Filter by date:</label>
+                        <select 
+                            style={selectStyle}
+                            value={selectedFilter}
+                            onChange={(e) => setSelectedFilter(e.target.value)}
+                        >
+                            {dateFilters.map(filter => (
+                                <option key={filter.label} value={filter.label}>
+                                    {filter.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="table-container">
+                        <table className="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Create Date</th>
+                                    <th>Company ID</th>
+                                    <th>Outlet ID</th>
+                                    <th>Invoice Number</th>
+                                    <th>Invoice Date</th>
+                                    <th>Description</th>
+                                    <th>Currency</th>
+                                    <th>Service Price</th>
+                                    <th>Goods Price</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedVendors.map(([vendor, transactions]) => (
+                                    <React.Fragment key={vendor}>
+                                        <tr className="vendor-group">
+                                            <td colSpan="9">{vendor} ({transactions.length} transactions)</td>
+                                        </tr>
+                                        {transactions.map((transaction, index) => (
+                                            <tr key={`${vendor}-${index}`}>
+                                                <td>{transaction.createDate}</td>
+                                                <td>{renderFieldValue(transaction.companyId)}</td>
+                                                <td>{renderFieldValue(transaction.outletId)}</td>
+                                                <td>{renderFieldValue(transaction.invoiceNumber)}</td>
+                                                <td>{renderFieldValue(transaction.invoiceDate)}</td>
+                                                <td>{renderFieldValue(transaction.description)}</td>
+                                                <td>{renderFieldValue(transaction.currency)}</td>
+                                                <td>{renderFieldValue(transaction.servicePrice)}</td>
+                                                <td>{renderFieldValue(transaction.goodsPrice)}</td>
+                                            </tr>
+                                        ))}
+                                    </React.Fragment>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </React.Fragment>
+            );
+        };
+
+        // TabView component
+        const TabView = ({ data, onDataFiltered }) => {
+            const [activeTab, setActiveTab] = React.useState('accuracy');
+
+            return (
+                <React.Fragment>
+                    <div className="tabs">
+                        <button 
+                            className={`tab ${activeTab === 'accuracy' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('accuracy')}
+                        >
+                            Accuracy
+                        </button>
+                        <button 
+                            className={`tab ${activeTab === 'data' ? 'active' : ''}`}
+                            onClick={() => setActiveTab('data')}
+                        >
+                            Data
+                        </button>
+                    </div>
+                    {activeTab === 'accuracy' ? (
+                        <AccuracyHeatmap data={data} onDataFiltered={onDataFiltered} />
+                    ) : (
+                        <DataTable data={data} />
+                    )}
+                </React.Fragment>
+            );
+        };
+
+        // Update App component to use TabView
         const App = ({ data }) => {
             const [currentData, setCurrentData] = React.useState(data);
             const summaryMetrics = calculateSummaryMetrics(currentData);
@@ -570,9 +839,9 @@
 
             return (
                 <div className="container">
-                    <h1>DocAI Accuracy Report</h1>
+                    <h2>DocAI Accuracy Report</h2>
                     <SummaryCards metrics={summaryMetrics} />
-                    <AccuracyHeatmap 
+                    <TabView 
                         data={data} 
                         onDataFiltered={handleDataFiltered}
                     />
