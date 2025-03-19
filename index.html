@@ -53,7 +53,7 @@
             text-align: center;
         }
         .container {
-            max-width: 1400px;
+            max-width: 1700px;
             margin: 0 auto;
             background-color: white;
             padding: 1.5rem;
@@ -285,10 +285,43 @@
             return { vendorAccuracies, fields };
         };
 
+        // Add date filter options
+        const dateFilters = [
+            { label: "2 Weeks", days: 14 },
+            { label: "1 Month", days: 30 },
+            { label: "3 Months", days: 90 },
+            { label: "All", days: null }
+        ];
+
+        // Utility function to filter data by date
+        const filterDataByDate = (data, days) => {
+            if (!days) return data;
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - days);
+            return data.filter(transaction => {
+                const createDate = new Date(transaction.CreateDate);
+                return createDate >= cutoffDate;
+            });
+        };
+
         // AccuracyHeatmap component
-        const AccuracyHeatmap = ({ data }) => {
-            console.log('Rendering AccuracyHeatmap with data:', data);
-            const { vendorAccuracies, fields } = calculateAccuracies(data);
+        const AccuracyHeatmap = ({ data, onDataFiltered }) => {
+            const [selectedFilter, setSelectedFilter] = React.useState("All");
+            const [filteredData, setFilteredData] = React.useState(data);
+
+            React.useEffect(() => {
+                const days = dateFilters.find(f => f.label === selectedFilter).days;
+                const filtered = filterDataByDate(data, days);
+                // Sort by CreateDate in descending order
+                const sorted = [...filtered].sort((a, b) => 
+                    new Date(b.CreateDate) - new Date(a.CreateDate)
+                );
+                setFilteredData(sorted);
+                onDataFiltered(sorted); // Notify parent component about filtered data
+            }, [selectedFilter, data, onDataFiltered]);
+
+            console.log('Rendering AccuracyHeatmap with data:', filteredData);
+            const { vendorAccuracies, fields } = calculateAccuracies(filteredData);
 
             const sortedVendors = Object.entries(vendorAccuracies)
                 .sort(([, a], [, b]) => b.transactionCount - a.transactionCount);
@@ -338,8 +371,45 @@
                 whiteSpace: 'nowrap'
             };
 
+            const filterStyle = {
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+            };
+
+            const selectStyle = {
+                padding: '8px 12px',
+                borderRadius: '6px',
+                border: '1px solid #dee2e6',
+                backgroundColor: 'white',
+                fontSize: '0.9rem',
+                color: '#495057',
+                cursor: 'pointer'
+            };
+
+            const labelStyle = {
+                fontSize: '0.9rem',
+                fontWeight: '500',
+                color: '#495057'
+            };
+
             return (
                 <React.Fragment>
+                    <div style={filterStyle}>
+                        <label style={labelStyle}>Filter by date:</label>
+                        <select 
+                            style={selectStyle}
+                            value={selectedFilter}
+                            onChange={(e) => setSelectedFilter(e.target.value)}
+                        >
+                            {dateFilters.map(filter => (
+                                <option key={filter.label} value={filter.label}>
+                                    {filter.label}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                     <div className="table-container">
                         <table style={tableStyle}>
                             <thead>
@@ -489,16 +559,23 @@
             );
         };
 
-        // Update App component to wrap everything in a single container
+        // Update App component to handle filtered data
         const App = ({ data }) => {
-            console.log('Rendering App with data:', data);
-            const summaryMetrics = calculateSummaryMetrics(data);
+            const [currentData, setCurrentData] = React.useState(data);
+            const summaryMetrics = calculateSummaryMetrics(currentData);
             
+            const handleDataFiltered = React.useCallback((filteredData) => {
+                setCurrentData(filteredData);
+            }, []);
+
             return (
                 <div className="container">
                     <h1>DocAI Accuracy Report</h1>
                     <SummaryCards metrics={summaryMetrics} />
-                    <AccuracyHeatmap data={data} />
+                    <AccuracyHeatmap 
+                        data={data} 
+                        onDataFiltered={handleDataFiltered}
+                    />
                 </div>
             );
         };
