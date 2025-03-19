@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocAI Accuracy Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            margin: 0; 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 20px;
+            background-color: #f8f9fa;
+            color: #212529;
+            line-height: 1.5;
+        }
+        .loading {
+            text-align: center;
+            font-size: 1.2em;
+            margin-top: 50px;
+            color: #6c757d;
+        }
+        .error {
+            color: #dc3545;
+            text-align: center;
+            margin-top: 50px;
+            white-space: pre-wrap;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .high-accuracy {
+            background-color: rgba(40, 167, 69, 0.85) !important;
+            color: white;
+            font-weight: 500;
+        }
+        .medium-accuracy {
+            background-color: rgba(255, 193, 7, 0.85) !important;
+            color: black;
+            font-weight: 500;
+        }
+        .low-accuracy {
+            background-color: rgba(220, 53, 69, 0.85) !important;
+            color: white;
+            font-weight: 500;
+        }
+        h1 {
+            color: #1a1a1a;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            font-size: 2rem;
+            text-align: center;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .table-container {
+            width: 100%;
+            overflow-x: auto;
+            margin: 0 -1px;
+            padding: 1px;
+        }
+        .table-container::-webkit-scrollbar {
+            height: 8px;
+        }
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 4px;
+            margin-right: 15px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .legend-container {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 25px;
+            text-align: center;
+        }
+        .legend-title {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        tr:hover td {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+        .sticky-vendor {
+            position: sticky;
+            left: 0;
+            background-color: white;
+            z-index: 1;
+            border-right: 2px solid #dee2e6;
+        }
+        tr:hover .sticky-vendor {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+            padding: 0;
+        }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin: 0 0 4px 0;
+        }
+        .card-subtitle {
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin: 0 0 12px 0;
+        }
+        .card-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0;
+            line-height: 1;
+        }
+        .value-success {
+            color: #28a745;
+        }
+        .value-primary {
+            color: #4361ee;
+        }
+        .value-warning {
+            color: #ff9f43;
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div class="loading">Loading...</div>
+    </div>
+
+    <!-- React and Babel -->
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/babel-standalone@6.26.0/babel.min.js"></script>
+    
+    <!-- Our components -->
+    <script type="text/babel">
+        // Utility functions
+        const calculateAccuracies = (data) => {
+            console.log('Processing data:', data);
+            const fields = [
+                'CompanyID', 'BrandID', 'OutletID', 'VendorName', 
+                'Currency', 'InvoiceNumber',
+                'InvoiceDate', 'Description', 'ServicePrice', 'GoodsPrice'
+            ];
+
+            const vendorAccuracies = {};
+
+            // Process each transaction
+            data.forEach((transaction, index) => {
+                console.log(`Processing transaction ${index}:`, transaction);
+                
+                // Find VendorName in Header array
+                const vendorField = transaction.Header.find(field => field.name === 'VendorName');
+                const vendorName = vendorField && vendorField.value && vendorField.value.original ? vendorField.value.original : 'Unknown';
+                console.log('Vendor name:', vendorName);
+                
+                if (!vendorAccuracies[vendorName]) {
+                    vendorAccuracies[vendorName] = {
+                        transactionCount: 0,
+                        fields: {}
+                    };
+                    fields.forEach(field => {
+                        vendorAccuracies[vendorName].fields[field] = {
+                            correct: 0,
+                            total: 0
+                        };
+                    });
+                }
+
+                vendorAccuracies[vendorName].transactionCount++;
+
+                // Process header fields
+                transaction.Header.forEach(field => {
+                    if (fields.includes(field.name)) {
+                        const fieldStats = vendorAccuracies[vendorName].fields[field.name];
+                        
+                        // Only process if we have both original and modified values
+                        if (field.value && (field.value.original !== undefined || field.value.modified !== undefined)) {
+                            fieldStats.total++;
+                            
+                            const originalValue = String(field.value.original || '').trim().toLowerCase();
+                            const modifiedValue = String(field.value.modified || '').trim().toLowerCase();
+                            
+                            // Consider empty strings as matches if both are empty
+                            const isMatch = (originalValue === modifiedValue) || 
+                                          (originalValue === '' && modifiedValue === '') ||
+                                          (originalValue !== '' && modifiedValue === ''); // If modified is empty, consider it correct
+                            
+                            if (isMatch) {
+                                fieldStats.correct++;
+                            }
+                            
+                            console.log(`Header Field ${field.name}:`, {
+                                original: originalValue,
+                                modified: modifiedValue,
+                                isMatch: isMatch,
+                                correct: fieldStats.correct,
+                                total: fieldStats.total
+                            });
+                        }
+                    }
+                });
+
+                // Process detail fields
+                transaction.Detail.forEach((detail, detailIndex) => {
+                    detail.Data.forEach(field => {
+                        if (fields.includes(field.name)) {
+                            const fieldStats = vendorAccuracies[vendorName].fields[field.name];
+                            
+                            // Only process if we have both original and modified values
+                            if (field.value && (field.value.original !== undefined || field.value.modified !== undefined)) {
+                                fieldStats.total++;
+                                
+                                const originalValue = String(field.value.original || '').trim().toLowerCase();
+                                const modifiedValue = String(field.value.modified || '').trim().toLowerCase();
+                                
+                                // Consider empty strings as matches if both are empty
+                                const isMatch = (originalValue === modifiedValue) || 
+                                              (originalValue === '' && modifiedValue === '') ||
+                                              (originalValue !== '' && modifiedValue === ''); // If modified is empty, consider it correct
+                                
+                                if (isMatch) {
+                                    fieldStats.correct++;
+                                }
+                                
+                                console.log(`Detail ${detailIndex} Field ${field.name}:`, {
+                                    original: originalValue,
+                                    modified: modifiedValue,
+                                    isMatch: isMatch,
+                                    correct: fieldStats.correct,
+                                    total: fieldStats.total
+                                });
+                            }
+                        }
+                    });
+                });
+            });
+
+            // Calculate final accuracies
+            Object.values(vendorAccuracies).forEach(vendor => {
+                vendor.accuracies = {};
+                Object.entries(vendor.fields).forEach(([fieldName, stats]) => {
+                    vendor.accuracies[fieldName] = stats.total > 0 
+                        ? (stats.correct / stats.total) * 100 
+                        : 0;
+                });
+            });
+
+            console.log('Final accuracies:', vendorAccuracies);
+            return { vendorAccuracies, fields };
+        };
+
+        // AccuracyHeatmap component
+        const AccuracyHeatmap = ({ data }) => {
+            console.log('Rendering AccuracyHeatmap with data:', data);
+            const { vendorAccuracies, fields } = calculateAccuracies(data);
+
+            const sortedVendors = Object.entries(vendorAccuracies)
+                .sort(([, a], [, b]) => b.transactionCount - a.transactionCount);
+
+            const getAccuracyClass = (accuracy) => {
+                if (accuracy >= 80) return 'high-accuracy';
+                if (accuracy >= 50) return 'medium-accuracy';
+                return 'low-accuracy';
+            };
+
+            const tableStyle = {
+                borderCollapse: 'separate',
+                borderSpacing: 0,
+                width: '100%',
+                marginTop: '20px',
+                backgroundColor: 'white',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            };
+
+            const cellStyle = {
+                padding: '12px 16px',
+                textAlign: 'center',
+                borderBottom: '1px solid #e9ecef',
+                fontSize: '0.95rem'
+            };
+
+            const headerStyle = {
+                backgroundColor: '#f8f9fa',
+                color: '#495057',
+                fontWeight: '600',
+                padding: '14px 16px',
+                textAlign: 'center',
+                borderBottom: '2px solid #dee2e6',
+                fontSize: '0.95rem'
+            };
+
+            const vendorCellStyle = {
+                ...cellStyle,
+                textAlign: 'left',
+                fontWeight: '500',
+                color: '#212529',
+                maxWidth: '200px',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+            };
+
+            return (
+                <React.Fragment>
+                    <div className="table-container">
+                        <table style={tableStyle}>
+                            <thead>
+                                <tr>
+                                    <th style={{...headerStyle, position: 'sticky', left: 0, zIndex: 2, backgroundColor: '#f8f9fa'}}>Vendor</th>
+                                    {fields.map(field => (
+                                        <th key={field} style={headerStyle}>{field}</th>
+                                    ))}
+                                    <th style={headerStyle}>Transaction</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {sortedVendors.map(([vendor, vendorData]) => (
+                                    <tr key={vendor}>
+                                        <td style={{...vendorCellStyle}} className="sticky-vendor" title={vendor}>{vendor}</td>
+                                        {fields.map(field => {
+                                            const accuracy = vendorData.accuracies[field] || 0;
+                                            const fieldStats = vendorData.fields[field];
+                                            return (
+                                                <td 
+                                                    key={`${vendor}-${field}`} 
+                                                    style={cellStyle}
+                                                    className={getAccuracyClass(accuracy)}
+                                                    title={`Correct: ${fieldStats.correct}, Total: ${fieldStats.total}`}
+                                                >
+                                                    {accuracy.toFixed(1)}%
+                                                </td>
+                                            );
+                                        })}
+                                        <td style={{...cellStyle, fontWeight: '600'}}>{vendorData.transactionCount}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div className="legend-container">
+                        <div className="legend-title">Accuracy Legend</div>
+                        <div>
+                            <span className="legend-item high-accuracy">&ge; 80%</span>
+                            <span className="legend-item medium-accuracy">50-79%</span>
+                            <span className="legend-item low-accuracy">&lt; 50%</span>
+                        </div>
+                    </div>
+                </React.Fragment>
+            );
+        };
+
+        // New function to calculate summary metrics
+        const calculateSummaryMetrics = (data) => {
+            let totalCorrect = 0;
+            let totalFields = 0;
+            let totalDocuments = data.length;
+            let fieldsNeedingReview = 0;
+            let totalProcessedFields = 0;
+
+            data.forEach(transaction => {
+                // Process header fields
+                transaction.Header.forEach(field => {
+                    if (field.value && (field.value.original !== undefined || field.value.modified !== undefined)) {
+                        totalFields++;
+                        totalProcessedFields++;
+                        const originalValue = String(field.value.original || '').trim().toLowerCase();
+                        const modifiedValue = String(field.value.modified || '').trim().toLowerCase();
+                        
+                        const isMatch = (originalValue === modifiedValue) || 
+                                      (originalValue === '' && modifiedValue === '') ||
+                                      (originalValue !== '' && modifiedValue === '');
+                        
+                        if (isMatch) {
+                            totalCorrect++;
+                        } else {
+                            fieldsNeedingReview++;
+                        }
+                    }
+                });
+
+                // Process detail fields
+                transaction.Detail.forEach(detail => {
+                    detail.Data.forEach(field => {
+                        if (field.value && (field.value.original !== undefined || field.value.modified !== undefined)) {
+                            totalFields++;
+                            totalProcessedFields++;
+                            const originalValue = String(field.value.original || '').trim().toLowerCase();
+                            const modifiedValue = String(field.value.modified || '').trim().toLowerCase();
+                            
+                            const isMatch = (originalValue === modifiedValue) || 
+                                          (originalValue === '' && modifiedValue === '') ||
+                                          (originalValue !== '' && modifiedValue === '');
+                            
+                            if (isMatch) {
+                                totalCorrect++;
+                            } else {
+                                fieldsNeedingReview++;
+                            }
+                        }
+                    });
+                });
+            });
+
+            const overallAccuracy = totalFields > 0 ? (totalCorrect / totalFields) * 100 : 0;
+            // Calculate percentage based on actual fields needing review
+            const fieldsRequiringReviewPercentage = totalProcessedFields > 0 
+                ? (fieldsNeedingReview / totalProcessedFields) * 100 
+                : 0;
+
+            console.log('Summary Metrics:', {
+                totalCorrect,
+                totalFields,
+                fieldsNeedingReview,
+                totalProcessedFields,
+                overallAccuracy,
+                fieldsRequiringReviewPercentage
+            });
+
+            return {
+                overallAccuracy,
+                totalDocuments,
+                fieldsRequiringReviewPercentage,
+                fieldsNeedingReview,
+                totalProcessedFields
+            };
+        };
+
+        // Summary Cards component
+        const SummaryCards = ({ metrics }) => {
+            return (
+                <div className="summary-cards">
+                    <div className="card">
+                        <h2 className="card-title">Overall Accuracy</h2>
+                        <p className="card-subtitle">Current performance</p>
+                        <p className="card-value value-success">{metrics.overallAccuracy.toFixed(0)}%</p>
+                    </div>
+                    <div className="card">
+                        <h2 className="card-title">Documents Processed</h2>
+                        <p className="card-subtitle">Total documents</p>
+                        <p className="card-value value-primary">{metrics.totalDocuments}</p>
+                    </div>
+                    <div className="card">
+                        <h2 className="card-title">Fields Requiring Review</h2>
+                        <p className="card-subtitle">Fields needing manual correction</p>
+                        <p className="card-value value-warning">{metrics.fieldsRequiringReviewPercentage.toFixed(0)}%</p>
+                        <p className="card-subtitle" style={{marginTop: '8px', fontSize: '0.75rem'}}>
+                            ({metrics.fieldsNeedingReview} of {metrics.totalProcessedFields} fields)
+                        </p>
+                    </div>
+                </div>
+            );
+        };
+
+        // Update App component to wrap everything in a single container
+        const App = ({ data }) => {
+            console.log('Rendering App with data:', data);
+            const summaryMetrics = calculateSummaryMetrics(data);
+            
+            return (
+                <div className="container">
+                    <h1>DocAI Accuracy Report</h1>
+                    <SummaryCards metrics={summaryMetrics} />
+                    <AccuracyHeatmap data={data} />
+                </div>
+            );
+        };
+
+        // Initialize app
+        console.log('Starting to fetch data...');
+        fetch('src/data/response.json')
+            .then(response => {
+                console.log('Fetch response:', response);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(jsonData => {
+                console.log('Received JSON data:', jsonData);
+                ReactDOM.render(
+                    <React.StrictMode>
+                        <App data={jsonData} />
+                    </React.StrictMode>,
+                    document.getElementById('root')
+                );
+            })
+            .catch(error => {
+                console.error('Error loading JSON:', error);
+                document.getElementById('root').innerHTML = `<div class="error">Error loading data:\n${error.message}\n\nPlease check the console for more details.</div>`;
+            });
+    </script>
+</body>
+</html> 
