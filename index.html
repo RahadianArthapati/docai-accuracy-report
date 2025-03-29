@@ -702,6 +702,7 @@
                             month: 'short',
                             year: 'numeric'
                         }),
+                        transactionId: transaction.TransactionID,
                         companyId: getFieldValues(transaction, 'CompanyID'),
                         outletId: getFieldValues(transaction, 'OutletID'),
                         invoiceNumber: getFieldValues(transaction, 'InvoiceNumber'),
@@ -742,7 +743,7 @@
                 return (
                     <React.Fragment>
                         {values.original || '-'}
-                        {values.modified && values.modified.trim() !== '' && values.modified !== values.original && (
+                        {values.modified && values.modified.trim() !== '' && values.modified !== values.original && !values.modified.includes(values.original) && (
                             <span className="modified-value">{values.modified}</span>
                         )}
                     </React.Fragment>
@@ -795,6 +796,7 @@
                             <thead>
                                 <tr>
                                     <th>Create Date</th>
+                                    <th>Transaction ID</th>
                                     <th>Company ID</th>
                                     <th>Outlet ID</th>
                                     <th>Invoice Number</th>
@@ -817,6 +819,7 @@
                                             return (
                                                 <tr key={`${vendor}-${index}`}>
                                                     <td>{transaction.createDate}</td>
+                                                    <td>{transaction.transactionId}</td>
                                                     <td>{renderFieldValue(transaction.companyId)}</td>
                                                     <td>{renderFieldValue(transaction.outletId)}</td>
                                                     <td>{renderFieldValue(transaction.invoiceNumber)}</td>
@@ -1089,12 +1092,21 @@
             // For all other fields, use exact match logic
             const orig = String(originalValue || '').trim().toLowerCase();
             const mod = String(modifiedValue || '').trim().toLowerCase();
-            return (orig === mod) || (orig === '' && mod === '') || (orig !== '' && mod === '');
+            return (orig === mod) || (orig === '' && mod === '') || (orig !== '' && mod === '') || (mod.includes(orig) && orig !== '');
         };
 
         // Initialize app
         console.log('Starting to fetch data...');
-        fetch('src/data/response.json')
+        fetch('/api/proxy', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                StartDate: "2025-01-01",
+                EndDate: "2025-03-20"
+            })
+        })
             .then(response => {
                 console.log('Fetch response:', response);
                 if (!response.ok) {
